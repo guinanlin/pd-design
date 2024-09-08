@@ -19,7 +19,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { saveAzureConfig, getAzureConfig } from "@/components/AiChat/azureConfig"
 import { Transcript } from "@/components/AiChat/Transcript"
-import { getAnswer } from '@/app/utils/actions';
 import { ProjectSelector } from "@/components/AiChat/ProjectSelector"
 import UploadTextDialog from "@/components/AiChat/UploadTextDialog"
 import { azure,createAzure } from '@ai-sdk/azure';
