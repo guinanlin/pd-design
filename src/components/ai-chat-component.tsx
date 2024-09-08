@@ -28,7 +28,7 @@ import { ChatContent } from "./AiChat/ChatContent"
 
 
 interface Message {
-  role: "user" | "assistant"
+  role: "user" | "assistant" | "system"
   content: string
 }
 
@@ -68,8 +68,8 @@ export function AiChatComponent() {
   const [transcript, setTranscript] = useState<string>("")
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "您好！我是您的AI助手。请问有什么我可以帮助您的吗？" }
-  ])
+    { role: "system", content: "你是一个AI机器人,是我的日常工作助理" }
+  ]); // 初始化消息列表
   const [input, setInput] = useState("")
   const [isThinking, setIsThinking] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -91,7 +91,7 @@ export function AiChatComponent() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [generation, setGeneration] = useState<string>('');
 
-  // 提取 Azure 配置逻辑到组件外部
+  // 提取 Azure 配逻辑到组件外部
   const storedConfig = getAzureConfig()
   // console.log(storedConfig)
   const azureInstance = storedConfig ? createAzure({
@@ -170,7 +170,11 @@ export function AiChatComponent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
-      setMessages([...messages, { role: "user", content: input }]);
+      const userMessage = { role: "user", content: input };
+      const systemMessage = { role: "system", content: `你是一个AI机器人,是我的日常工作助理。我需要处理的文档内容是：${transcript}` };
+      const updatedMessages = [...messages, userMessage as Message]; // 更新消息列表
+
+      setMessages(updatedMessages);
       setInput("");
       setIsThinking(true);
       try {
@@ -183,15 +187,10 @@ export function AiChatComponent() {
 
         const result = await streamText({
           model: model,
-          prompt: input
+          messages: [systemMessage, ...updatedMessages].map(msg => ({ role: msg.role as "user" | "assistant" | "system", content: msg.content }))
         });
 
-        const textStream = result.textStream;
-        if (!textStream) {
-          throw new Error("Text stream is undefined");
-        }
-
-        const reader = textStream.getReader();
+        const reader = result.textStream.getReader();
         const decoder = new TextDecoder();
         let fullResponse = "";
         setMessages(prev => [...prev, { role: "assistant", content: "" }]);
@@ -200,33 +199,67 @@ export function AiChatComponent() {
           const { done, value } = await reader.read();
           if (done) break;
           if (value) {
-            // console.log('hello:',value)
-            fullResponse += value;
-            setMessages(prev => [
-              ...prev.slice(0, -1),
-              { role: "assistant", content: fullResponse }
-            ]);
+              fullResponse += value;
+              setMessages(prev => [
+                ...prev.slice(0, -1),
+                { role: "assistant", content: fullResponse }
+              ]);
           }
         }
+        const assistantMessage: Message = { role: "assistant", content: fullResponse };
+        setMessages(prev => [...prev.slice(0, -1), assistantMessage]); // 更新消息列表，包含AI的回复
       } catch (error) {
         console.error("Error getting AI response:", error);
-        setMessages(prev => [...prev, { role: "assistant", content: "抱歉，我遇到了一些问题。请稍后再试。" }]);
+        setMessages(prev => [...prev, { role: "assistant", content: "抱歉，我遇到了一些问题。请稍后再试。" } as Message]);
       }
       setIsThinking(false);
     }
   };
   
   const handleSummarize = async () => {
-    setIsThinking(true)
+    const userMessage = { role: "user", content: "请总结当前的内容,需要条理清楚,逻辑清晰，最好用列表方式" };
+    const systemMessage = { role: "system", content: `你是一个AI机器人,是我的日常工��助理。我需要处理的文档内容是：${transcript}` };
+    const updatedMessages = [...messages, userMessage as Message]; // 更新消息列表
+
+    setMessages(updatedMessages);
+    setIsThinking(true);
     try {
-      const summarizedContent = await chat.send("请总结当前的对话内容，并提供下一步行动建议。")
-      setMessages(prev => [...prev, { role: "assistant", content: summarizedContent }])
+      if (!azureInstance) {
+        throw new Error("Azure 配置未找到");
+      }
+      
+      const { azureDeploymentName } = storedConfig!;
+      const model = azureInstance(azureDeploymentName);
+
+      const result = await streamText({
+        model: model,
+        messages: [systemMessage, ...updatedMessages].map(msg => ({ role: msg.role as "user" | "assistant" | "system", content: msg.content }))
+      });
+
+      const reader = result.textStream.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = "";
+      setMessages(prev => [...prev, { role: "assistant", content: "" }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+            fullResponse += value;
+            setMessages(prev => [
+              ...prev.slice(0, -1),
+              { role: "assistant", content: fullResponse }
+            ]);
+        }
+      }
+      const assistantMessage: Message = { role: "assistant", content: fullResponse };
+      setMessages(prev => [...prev.slice(0, -1), assistantMessage]); // 更新消息列表，包含AI的回复
     } catch (error) {
-      console.error("Error summarizing content:", error)
-      setMessages(prev => [...prev, { role: "assistant", content: "抱歉，总结过程中遇到了问题。请稍后再试。" }])
+      console.error("Error getting AI response:", error);
+      setMessages(prev => [...prev, { role: "assistant", content: "抱歉，我遇到了一些问题。请稍后再试。" } as Message]);
     }
-    setIsThinking(false)
-  }
+    setIsThinking(false);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -301,7 +334,7 @@ export function AiChatComponent() {
     <div className="container mx-auto px-4 py-4 h-[95vh]">
       <Card className="w-full h-full flex flex-col">
         <CardHeader className="flex-shrink-0 flex justify-start items-start">
-          <CardTitle className="text-3xl font-bold flex items-start"><span className="mr-4">需求梳理</span>
+          <CardTitle className="text-3xl font-bold flex items-start"><span className="mr-4">产品MVP</span>
             <ProjectSelector
               projects={projects}
               selectedProject={selectedProject}
@@ -326,6 +359,36 @@ export function AiChatComponent() {
                 >
                   参考资料
                 </TabsTrigger>
+                <TabsTrigger 
+                  value="project-objectives" 
+                  className="text-sm px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-950"
+                >
+                  项目目标
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="core-process" 
+                  className="text-sm px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-950"
+                >
+                  核心流程
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="feature-list" 
+                  className="text-sm px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-950"
+                >
+                  功能清单
+                </TabsTrigger>  
+                <TabsTrigger 
+                  value="personnel-quote" 
+                  className="text-sm px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-950"
+                >
+                  人员配置
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="project-plan" 
+                  className="text-sm px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-950"  
+                >
+                  项目计划
+                </TabsTrigger>      
               </TabsList>
               <div className="flex items-center space-x-2">
                 <ProjectInfoDialog
@@ -351,7 +414,7 @@ export function AiChatComponent() {
             </div>
             <TabsContent value="chat" className="flex-grow flex flex-col mt-0">
               <ChatContent
-                messages={messages}
+                messages={messages as any}
                 isThinking={isThinking}
                 input={input}
                 showShortcuts={showShortcuts}

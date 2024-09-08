@@ -30,6 +30,14 @@ const DialogWrapper = forwardRef<HTMLDivElement, { children: React.ReactNode; op
 DialogWrapper.displayName = "DialogWrapper"
 
 const ProjectInfoDialog: React.FC<ProjectInfoDialogProps> = ({ isOpen, onOpenChange, projectInfo, onProjectInfoChange }) => {
+  const handleTabKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      console.log('按了tab键');
+      e.preventDefault(); // 防止默认的Tab行为
+      e.currentTarget.readOnly = true; // 设置为只读状态
+      e.currentTarget.style.color = 'gray'; // 设置字体颜色为灰色
+    }
+  };
   return (
     <TooltipProvider>
       <Tooltip>
@@ -67,8 +75,9 @@ const ProjectInfoDialog: React.FC<ProjectInfoDialogProps> = ({ isOpen, onOpenCha
                     name="description"
                     value={projectInfo.description}
                     onChange={onProjectInfoChange}
-                    placeholder="用一句话, 140个字以内, 讲清楚这个项目做什么"
+                    placeholder="一句话（140个字以内），讲清楚这个项目做什么，也可以试试按住Tab键，让AI帮你生成"
                     className="col-span-3"
+                    onKeyDown={handleTabKeyPress}
                   />
                 </div>
               </div>

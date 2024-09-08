@@ -29,18 +29,23 @@ const decrypt = (ciphertext: string): string => {
 
 // 保存配置
 export const saveAzureConfig = (config: AzureConfig): void => {
-  const encryptedConfig = {
-    azureApiKey: encrypt(config.azureApiKey),
-    azureEndpoint: encrypt(config.azureEndpoint),
-    azureDeploymentName: encrypt(config.azureDeploymentName),
-    azureApiVersion: encrypt(config.azureApiVersion),
-    azureResourceName: encrypt(config.azureResourceName), // 加密资源名称
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedConfig));
+  if (typeof window !== 'undefined') {
+    const encryptedConfig = {
+      azureApiKey: encrypt(config.azureApiKey),
+      azureEndpoint: encrypt(config.azureEndpoint),
+      azureDeploymentName: encrypt(config.azureDeploymentName),
+      azureApiVersion: encrypt(config.azureApiVersion),
+      azureResourceName: encrypt(config.azureResourceName), // 加密资源名称
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedConfig));
+  }
 };
 
 // 获取配置
 export const getAzureConfig = (): AzureConfig | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
   const storedConfig = localStorage.getItem(STORAGE_KEY);
   if (!storedConfig) return null;
 
@@ -56,7 +61,9 @@ export const getAzureConfig = (): AzureConfig | null => {
 
 // 清除配置
 export const clearAzureConfig = (): void => {
-  localStorage.removeItem(STORAGE_KEY);
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(STORAGE_KEY);
+  }
 };
 
 // 创建并返回 Azure 实例
