@@ -23,7 +23,7 @@ import { getAnswer } from '@/app/utils/actions';
 import { ProjectSelector } from "@/components/AiChat/ProjectSelector"
 import UploadTextDialog from "@/components/AiChat/UploadTextDialog"
 import { azure,createAzure } from '@ai-sdk/azure';
-import { generateText } from 'ai';
+import { generateText,streamText } from 'ai';
 import { ChatContent } from "./AiChat/ChatContent"
 
 
@@ -82,6 +82,7 @@ export function AiChatComponent() {
   const [azureApiKey, setAzureApiKey] = useState("")
   const [azureEndpoint, setAzureEndpoint] = useState("")
   const [azureDeploymentName, setAzureDeploymentName] = useState("")
+  const [azureResourceName, setAzureResourceName] = useState("")
   const [azureApiVersion, setAzureApiVersion] = useState("")
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -92,9 +93,11 @@ export function AiChatComponent() {
 
   // 提取 Azure 配置逻辑到组件外部
   const storedConfig = getAzureConfig()
+  // console.log(storedConfig)
   const azureInstance = storedConfig ? createAzure({
-    baseURL: storedConfig.azureEndpoint,
-    apiKey: storedConfig.azureApiKey
+    resourceName: storedConfig.azureResourceName,
+    apiKey: storedConfig.azureApiKey,
+    baseURL: storedConfig.azureEndpoint
   }) : null;
 
   useEffect(() => {
@@ -103,6 +106,7 @@ export function AiChatComponent() {
       setAzureEndpoint(storedConfig.azureEndpoint)
       setAzureDeploymentName(storedConfig.azureDeploymentName)
       setAzureApiVersion(storedConfig.azureApiVersion)
+      setAzureResourceName(storedConfig.azureResourceName)
     }
   }, [])
 
@@ -126,12 +130,18 @@ export function AiChatComponent() {
     updateAzureConfig("azureApiVersion", e.target.value)
   }
 
+  const handleAzureResourceNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAzureResourceName(e.target.value)
+    updateAzureConfig("azureResourceName", e.target.value)
+  }
+
   const updateAzureConfig = (key: string, value: string) => {
     const newConfig = {
       azureApiKey,
       azureEndpoint,
       azureDeploymentName,
       azureApiVersion,
+      azureResourceName,
       [key]: value,
     }
     saveAzureConfig(newConfig)
@@ -170,13 +180,34 @@ export function AiChatComponent() {
         
         const { azureDeploymentName } = storedConfig!;
         const model = azureInstance(azureDeploymentName);
-  
-        const { text } = await generateText({
+
+        const result = await streamText({
           model: model,
           prompt: input
         });
-  
-        setMessages(prev => [...prev, { role: "assistant", content: text }]);
+
+        const textStream = result.textStream;
+        if (!textStream) {
+          throw new Error("Text stream is undefined");
+        }
+
+        const reader = textStream.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = "";
+        setMessages(prev => [...prev, { role: "assistant", content: "" }]);
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            // console.log('hello:',value)
+            fullResponse += value;
+            setMessages(prev => [
+              ...prev.slice(0, -1),
+              { role: "assistant", content: fullResponse }
+            ]);
+          }
+        }
       } catch (error) {
         console.error("Error getting AI response:", error);
         setMessages(prev => [...prev, { role: "assistant", content: "抱歉，我遇到了一些问题。请稍后再试。" }]);
@@ -312,6 +343,8 @@ export function AiChatComponent() {
                   onAzureEndpointChange={handleAzureEndpointChange}
                   onAzureDeploymentNameChange={handleAzureDeploymentNameChange}
                   onAzureApiVersionChange={handleAzureApiVersionChange}
+                  azureResourceName={azureResourceName}
+                  onAzureResourceNameChange={handleAzureResourceNameChange}
                 />
                 <UploadTextDialog onFileUpload={handleFileUpload} />
               </div>

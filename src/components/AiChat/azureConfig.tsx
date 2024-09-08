@@ -10,15 +10,19 @@ interface AzureConfig {
   azureEndpoint: string;
   azureDeploymentName: string;
   azureApiVersion: string;
+  azureResourceName: string;
 }
 
 // 加密函数
 const encrypt = (text: string): string => {
-  return CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
+  return CryptoJS.AES.encrypt(text || '', SECRET_KEY).toString();
 };
 
 // 解密函数
 const decrypt = (ciphertext: string): string => {
+  if (!ciphertext) {
+    return '';
+  }
   const bytes = CryptoJS.AES.decrypt(ciphertext, SECRET_KEY);
   return bytes.toString(CryptoJS.enc.Utf8);
 };
@@ -30,6 +34,7 @@ export const saveAzureConfig = (config: AzureConfig): void => {
     azureEndpoint: encrypt(config.azureEndpoint),
     azureDeploymentName: encrypt(config.azureDeploymentName),
     azureApiVersion: encrypt(config.azureApiVersion),
+    azureResourceName: encrypt(config.azureResourceName), // 加密资源名称
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedConfig));
 };
@@ -45,6 +50,7 @@ export const getAzureConfig = (): AzureConfig | null => {
     azureEndpoint: decrypt(encryptedConfig.azureEndpoint),
     azureDeploymentName: decrypt(encryptedConfig.azureDeploymentName),
     azureApiVersion: decrypt(encryptedConfig.azureApiVersion),
+    azureResourceName: decrypt(encryptedConfig.azureResourceName), // 解密资源名称
   };
 };
 

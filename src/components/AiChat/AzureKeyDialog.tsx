@@ -11,10 +11,12 @@ interface AzureKeyDialogProps {
   azureEndpoint: string
   azureDeploymentName: string
   azureApiVersion: string
+  azureResourceName: string
   onAzureKeyChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onAzureEndpointChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onAzureDeploymentNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onAzureApiVersionChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onAzureResourceNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
 const AzureKeyDialog = forwardRef<HTMLButtonElement, AzureKeyDialogProps>(({
@@ -22,10 +24,12 @@ const AzureKeyDialog = forwardRef<HTMLButtonElement, AzureKeyDialogProps>(({
   azureEndpoint,
   azureDeploymentName,
   azureApiVersion,
+  azureResourceName,
   onAzureKeyChange,
   onAzureEndpointChange,
   onAzureDeploymentNameChange,
-  onAzureApiVersionChange
+  onAzureApiVersionChange,
+  onAzureResourceNameChange
 }, ref) => {
   return (
     <TooltipProvider>
@@ -89,6 +93,18 @@ const AzureKeyDialog = forwardRef<HTMLButtonElement, AzureKeyDialogProps>(({
                   value={azureApiVersion}
                   onChange={onAzureApiVersionChange}
                   placeholder="例如：2023-05-15"
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="azureResourceName" className="text-right">
+                  资源名称
+                </Label>
+                <Input
+                  id="azureResourceName"
+                  value={azureResourceName}
+                  onChange={onAzureResourceNameChange}
+                  placeholder="您的 Azure 资源名称"
                   className="col-span-3"
                 />
               </div>
